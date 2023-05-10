@@ -11,6 +11,8 @@ struct EmojiArtDocumentView: View {
     @ObservedObject var document: EmojiArtDocument
     let defaultEmojiFontSize: CGFloat = 40
     
+    @State private var selectedEmojiIds = Set<String>()
+    
     var body: some View {
         VStack(spacing: 0) {
             documentBody
@@ -26,15 +28,30 @@ struct EmojiArtDocumentView: View {
                         .scaleEffect(zoomScale)
                         .position(convertFromEmojiCoordinates((0, 0), geometry: geometry))
                 )
-                .gesture(doubleTapToZoom(in: geometry.size))
+                .gesture(doubleTapToZoom(in: geometry.size).exclusively(before: singleTapToRemoveSelection()))
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
                 } else {
                     ForEach(document.emojis) { emoji in
-                        Text(emoji.text)
-                            .font(.system(size: fontSize(for: emoji)))
-                            .scaleEffect(zoomScale)
-                            .position(position(for: emoji, geometry: geometry))
+                        ZStack {
+                            Text(emoji.text)
+                                .font(.system(size: fontSize(for: emoji)))
+                                .scaleEffect(zoomScale)
+                                .position(position(for: emoji, geometry: geometry))
+                                .overlay(
+                                    VStack {
+                                        if selectedEmojiIds.contains(emoji.id) {
+                                            Circle()
+                                                .stroke(Color.blue, lineWidth: 4)
+                                                .frame(width: selectedStateOverlaySize(for: emoji), height: selectedStateOverlaySize(for: emoji))
+                                                .position(position(for: emoji, geometry: geometry))
+                                        }
+                                    }
+                                )
+                                .onTapGesture {
+                                    handleEmojiSelection(emoji.id)
+                                }
+                        }
                     }
                 }
             }
@@ -76,6 +93,10 @@ struct EmojiArtDocumentView: View {
     
     private func fontSize(for emoji: EmojiArtModel.Emoji) -> CGFloat {
         CGFloat(emoji.size)
+    }
+    
+    private func selectedStateOverlaySize(for emoji: EmojiArtModel.Emoji) -> CGFloat {
+        fontSize(for: emoji) * zoomScale + 10
     }
     
     private func position(for emoji: EmojiArtModel.Emoji, geometry: GeometryProxy) -> CGPoint {
@@ -143,6 +164,15 @@ struct EmojiArtDocumentView: View {
             }
     }
     
+    private func singleTapToRemoveSelection() -> some Gesture {
+        TapGesture()
+            .onEnded {
+                if !selectedEmojiIds.isEmpty {
+                    selectedEmojiIds.removeAll()
+                }
+            }
+    }
+    
     private func zoomToFit(_ image: UIImage?, in size: CGSize) {
         guard let image = image, image.size.width > 0, image.size.height > 0,
             size.width > 0, size.height > 0 else {
@@ -152,6 +182,14 @@ struct EmojiArtDocumentView: View {
         let vZoom = size.height / image.size.height
         steadyStatePanOffset = .zero
         steadyStateZoomScale = min(hZoom, vZoom)
+    }
+    
+    private func handleEmojiSelection(_ emojiId: String) {
+        if selectedEmojiIds.contains(emojiId) {
+            selectedEmojiIds.remove(emojiId)
+        } else {
+            selectedEmojiIds.insert(emojiId)
+        }
     }
     
     private let testEmojis = "🦁🦉🪲🌷🌝🥨🍸🍭🏈🚘🦼🧨🦁🦉🪲🌷🌝🥨🍸🍭🏈🚘🦼🧨🦁🦉🪲🌷🌝🥨🍸🍭🏈🚘🦼🧨"
