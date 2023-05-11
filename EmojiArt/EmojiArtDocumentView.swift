@@ -32,7 +32,7 @@ struct EmojiArtDocumentView: View {
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
                 } else {
-                    ForEach(document.emojis) { emoji in
+                    ForEach(document.emojis, id: \.self) { emoji in
                         ZStack {
                             Text(emoji.text)
                                 .font(.system(size: fontSize(for: emoji)))
@@ -49,8 +49,9 @@ struct EmojiArtDocumentView: View {
                                     }
                                 )
                                 .onTapGesture {
-                                    handleEmojiSelection(emoji.id)
+                                    handleEmojiSelection(emoji)
                                 }
+                                .gesture(moveEmojiGesture(emoji))
                         }
                     }
                 }
@@ -130,11 +131,31 @@ struct EmojiArtDocumentView: View {
     
     private func panGesture() -> some Gesture {
         DragGesture()
-            .updating($gesturePanOffset) { latestDragGestureValue, ourGesturePanOffsetInOut, _ in
-                ourGesturePanOffsetInOut = latestDragGestureValue.translation / zoomScale
+            .updating($gesturePanOffset) { latestDragGestureValue, gesturePanOffset, _ in
+                gesturePanOffset = latestDragGestureValue.translation / zoomScale
             }
             .onEnded { finalDragGestureValue in
                 steadyStatePanOffset = steadyStatePanOffset + (finalDragGestureValue.translation / zoomScale)
+            }
+    }
+    
+    @GestureState private var emojiPanOffset: CGSize = .zero
+    
+    private func moveEmojiGesture(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
+        DragGesture()
+            .updating($emojiPanOffset) { latestDragGestureValue, emojiPanOffset, _ in
+                guard selectedEmojiIds.contains(emoji.id) else { return }
+//                emojiPanOffset = latestDragGestureValue.translation
+                for emoji in document.emojis where selectedEmojiIds.contains(emoji.id) {
+                    document.moveEmoji(emoji, by: latestDragGestureValue.translation)
+                }
+            }
+            .onEnded { finalDragGestureValue in
+                guard selectedEmojiIds.contains(emoji.id) else { return }
+                        
+                for emoji in document.emojis where selectedEmojiIds.contains(emoji.id) {
+                    document.moveEmoji(emoji, by: finalDragGestureValue.translation)
+                }
             }
     }
     
@@ -184,11 +205,11 @@ struct EmojiArtDocumentView: View {
         steadyStateZoomScale = min(hZoom, vZoom)
     }
     
-    private func handleEmojiSelection(_ emojiId: String) {
-        if selectedEmojiIds.contains(emojiId) {
-            selectedEmojiIds.remove(emojiId)
+    private func handleEmojiSelection(_ emoji: EmojiArtModel.Emoji) {
+        if selectedEmojiIds.contains(emoji.id) {
+            selectedEmojiIds.remove(emoji.id)
         } else {
-            selectedEmojiIds.insert(emojiId)
+            selectedEmojiIds.insert(emoji.id)
         }
     }
     
