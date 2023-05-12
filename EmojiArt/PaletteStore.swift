@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct Palette: Identifiable, Codable {
+struct Palette: Identifiable, Hashable, Codable {
     var name: String
     var emojis: String
     var id: Int
@@ -33,7 +33,6 @@ class PaletteStore: ObservableObject {
     }
     private func storeInUserDefaults() {
         UserDefaults.standard.set(try? JSONEncoder().encode(palettes), forKey: userDefaultsKey)
-//        UserDefaults.standard.set(palettes.map { [$0.name, $0.emojis, String($0.id)] }, forKey: userDefaultsKey)
     }
     
     private func restoreFromUserDefaults() {
@@ -41,14 +40,6 @@ class PaletteStore: ObservableObject {
         let decodedPalettes = try? JSONDecoder().decode([Palette].self, from: jsonData) {
             palettes = decodedPalettes
         }
-//        if let palettesPropertyList = UserDefaults.standard.array(forKey: userDefaultsKey) as? [[String]] {
-//            for paletteArray in palettesPropertyList {
-//                if paletteArray.count == 3, let id = Int(paletteArray[2]), !palettes.contains(where: { $0.id == id }) {
-//                    let palette = Palette(name: paletteArray[0], emojis: paletteArray[1], id: id)
-//                    palettes.append(palette)
-//                }
-//            }
-//        }
     }
     
     init(named name: String) {

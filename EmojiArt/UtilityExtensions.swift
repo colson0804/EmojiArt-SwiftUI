@@ -84,6 +84,16 @@ extension Array where Element == NSItemProvider {
     }
 }
 
+extension String {
+    var removingDuplicateCharacters: String {
+        reduce(into: "") { sofar, element in
+            if !sofar.contains(element) {
+                sofar.append(element)
+            }
+        }
+    }
+}
+
 extension URL {
     var imageURL: URL {
         for query in query?.components(separatedBy: "&") ?? [] {
