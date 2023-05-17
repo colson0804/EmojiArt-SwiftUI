@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 class EmojiArtDocument: ObservableObject {
     private var autosaveTimer: Timer?
@@ -68,10 +69,12 @@ class EmojiArtDocument: ObservableObject {
     
     @Published var backgroundImage: UIImage?
     @Published var backgroundImageFetchStatus: BackgroundImageFetchStatus = .idle
+    private var backgroundImageFetchCancellable: AnyCancellable?
     
-    enum BackgroundImageFetchStatus {
+    enum BackgroundImageFetchStatus: Equatable {
         case idle
         case fetching
+        case failed(URL)
     }
     
     private func fetchBackgroundImageDataIfNeeded() {
@@ -79,19 +82,20 @@ class EmojiArtDocument: ObservableObject {
         switch emojiArt.background {
         case .url(let url):
             backgroundImageFetchStatus = .fetching
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let imageData = try Data(contentsOf: url)
-                    DispatchQueue.main.async { [weak self] in
-                        if self?.emojiArt.background == EmojiArtModel.Background.url(url) {
-                            self?.backgroundImageFetchStatus = .idle
-                            self?.backgroundImage = UIImage(data: imageData)
-                        }
-                    }
-                } catch {
-                    return
+            backgroundImageFetchCancellable?.cancel()
+            
+            let session = URLSession.shared
+            let publisher = session.dataTaskPublisher(for: url)
+                .map { (data, _) in UIImage(data: data) }
+                .replaceError(with: nil)
+                .receive(on: DispatchQueue.main)
+            
+            backgroundImageFetchCancellable = publisher
+                .sink { [weak self] image in
+                    self?.backgroundImage = image
+                    self?.backgroundImageFetchStatus = (image != nil) ? .idle : .failed(url)
                 }
-            }
+            
         case .imageData(let data):
             backgroundImage = UIImage(data: data)
         case .blank:

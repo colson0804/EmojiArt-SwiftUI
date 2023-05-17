@@ -12,6 +12,7 @@ struct EmojiArtDocumentView: View {
     let defaultEmojiFontSize: CGFloat = 40
     
     @State private var selectedEmojiIds = Set<String>()
+    @State private var alertToShow: IdentifiableAlert?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -61,7 +62,30 @@ struct EmojiArtDocumentView: View {
                 return drop(providers: providers, at: location, geometry: geometry)
             }
             .gesture(panGesture().simultaneously(with: zoomGesture()))
+            .alert(item: $alertToShow) { alertToShow in
+                alertToShow.alert()
+            }
+            .onChange(of: document.backgroundImageFetchStatus) { status in
+                switch status {
+                case .failed(let url):
+                    showBackgroundImageFetchFailedAlert(url)
+                case .idle, .fetching:
+                    break
+                }
+            }
+            .onReceive(document.$backgroundImage) { image in
+                zoomToFit(image, in: geometry.size)
+            }
         }
+    }
+    
+    private func showBackgroundImageFetchFailedAlert(_ url: URL) {
+        alertToShow = IdentifiableAlert(id: "fetch failed \(url.absoluteString)", alert: {
+            Alert(title: Text("Background Image Fetch"),
+                  message: Text("Couldn't load image from \(url)"),
+                  dismissButton: .default(Text("OK"))
+            )
+        })
     }
     
     private func drop(providers: [NSItemProvider], at location: CGPoint, geometry: GeometryProxy) -> Bool {
