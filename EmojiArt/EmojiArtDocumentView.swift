@@ -10,7 +10,7 @@ import SwiftUI
 struct EmojiArtDocumentView: View {
     @ObservedObject var document: EmojiArtDocument
     @ScaledMetric var defaultEmojiFontSize: CGFloat = 40
-    
+    @Environment(\.undoManager) var undoManager
     @State private var selectedEmojiIds = Set<String>()
     @State private var alertToShow: IdentifiableAlert?
     @State private var autoZoom = false
@@ -94,14 +94,14 @@ struct EmojiArtDocumentView: View {
     private func drop(providers: [NSItemProvider], at location: CGPoint, geometry: GeometryProxy) -> Bool {
         var found = providers.loadObjects(ofType: URL.self) { url in
             autoZoom = true
-            document.setBackground(EmojiArtModel.Background.url(url.imageURL))
+            document.setBackground(EmojiArtModel.Background.url(url.imageURL), undoManager: undoManager)
         }
         
         if !found {
             found = providers.loadObjects(ofType: UIImage.self) { image in
                 if let data = image.jpegData(compressionQuality: 1.0) {
                     autoZoom = true
-                    document.setBackground(.imageData(data))
+                    document.setBackground(.imageData(data), undoManager: undoManager)
                 }
             }
         }
@@ -109,7 +109,10 @@ struct EmojiArtDocumentView: View {
         if !found {
             found = providers.loadObjects(ofType: String.self) { string in
                 guard let emoji = string.first, emoji.isEmoji else { return }
-                document.addEmoji(String(emoji), at: convertToEmojiCoordinates(location, geometry: geometry), size: defaultEmojiFontSize / zoomScale)
+                document.addEmoji(String(emoji),
+                                  at: convertToEmojiCoordinates(location, geometry: geometry),
+                                  size: defaultEmojiFontSize / zoomScale,
+                                  undoManager: undoManager)
             }
         }
         
@@ -170,16 +173,15 @@ struct EmojiArtDocumentView: View {
         DragGesture()
             .updating($emojiPanOffset) { latestDragGestureValue, emojiPanOffset, _ in
                 guard selectedEmojiIds.contains(emoji.id) else { return }
-//                emojiPanOffset = latestDragGestureValue.translation
                 for emoji in document.emojis where selectedEmojiIds.contains(emoji.id) {
-                    document.moveEmoji(emoji, by: latestDragGestureValue.translation)
+                    document.moveEmoji(emoji, by: latestDragGestureValue.translation, undoManager: undoManager)
                 }
             }
             .onEnded { finalDragGestureValue in
                 guard selectedEmojiIds.contains(emoji.id) else { return }
                         
                 for emoji in document.emojis where selectedEmojiIds.contains(emoji.id) {
-                    document.moveEmoji(emoji, by: finalDragGestureValue.translation)
+                    document.moveEmoji(emoji, by: finalDragGestureValue.translation, undoManager: undoManager)
                 }
             }
     }
