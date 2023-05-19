@@ -25,11 +25,10 @@ struct EmojiArtDocumentView: View {
     var documentBody: some View {
         GeometryReader { geometry in
             ZStack {
-                Color.white.overlay(
-                    OptionalImage(uiImage: document.backgroundImage)
-                        .scaleEffect(zoomScale)
-                        .position(convertFromEmojiCoordinates((0, 0), geometry: geometry))
-                )
+                Color.white
+                OptionalImage(uiImage: document.backgroundImage)
+                    .scaleEffect(zoomScale)
+                    .position(convertFromEmojiCoordinates((0, 0), geometry: geometry))
                 .gesture(doubleTapToZoom(in: geometry.size).exclusively(before: singleTapToRemoveSelection()))
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
@@ -78,6 +77,13 @@ struct EmojiArtDocumentView: View {
                 if autoZoom {
                     zoomToFit(image, in: geometry.size)
                 }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                UndoButton(
+                    undo: undoManager?.optionalUndoMenuItemTitle,
+                    redo: undoManager?.optionalRedoMenuItemTitle
+                )
             }
         }
     }
